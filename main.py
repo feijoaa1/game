@@ -4,6 +4,15 @@ import os
 
 pygame.init()
 
+# --- ПУТЬ К РЕСУРСАМ (для работы внутри .exe) ---
+def resource_path(relative_path):
+    """Возвращает путь к файлу внутри exe или рядом со скриптом."""
+    try:
+        base_path = sys._MEIPASS  # PyInstaller распаковывает сюда
+    except Exception:
+        base_path = os.path.abspath(".")
+    return os.path.join(base_path, relative_path)
+
 # --- ОКНО ---
 info = pygame.display.Info()
 WIDTH, HEIGHT = int(info.current_w * 0.9), int(info.current_h * 0.9)
@@ -20,9 +29,7 @@ DARK_RED = (120, 20, 20)
 GRAY = (80, 80, 80)
 LIGHT_GRAY = (150, 150, 150)
 GOLD = (255, 215, 0)
-PANEL_COLOR = (10, 10, 20, 200)  # полупрозрачная тёмная плашка
 BTN_BORDER = (220, 220, 220)
-
 
 def get_fonts(w, h):
     try:
@@ -38,16 +45,14 @@ def get_fonts(w, h):
             pygame.font.SysFont("arial", int(h * 0.026))
         )
 
-
 font_title, font, font_small = get_fonts(WIDTH, HEIGHT)
 
 # Игровые переменные
 game_state = 0
 karma = 0
 ending_type = ""
-has_wolf_fang = False  # артефакт от волчонка
-has_glow_mushroom = False  # артефакт от грибов
-
+has_wolf_fang = False
+has_glow_mushroom = False
 
 # --- ОБОДКА ПЕРСОНАЖАМ ---
 def add_outline(image, outline_color=BLACK, thickness=4):
@@ -64,10 +69,9 @@ def add_outline(image, outline_color=BLACK, thickness=4):
     outline_surf.blit(image, (0, 0))
     return outline_surf
 
-
 # --- ЗАГРУЗКА КАРТИНОК ---
 def load_image(name, size=None, is_bg=False):
-    path = os.path.join("images", name)
+    path = resource_path(os.path.join("images", name))
     try:
         img = pygame.image.load(path).convert_alpha()
         if is_bg:
@@ -83,7 +87,6 @@ def load_image(name, size=None, is_bg=False):
         surf = pygame.Surface((WIDTH, HEIGHT) if is_bg else size, pygame.SRCALPHA)
         surf.fill(GRAY if not is_bg else (30, 30, 30))
         return surf
-
 
 # Фоны
 bg_forest = load_image("bg_forest.png", is_bg=True)
@@ -102,23 +105,15 @@ img_spirit = load_image("spirit.png", (300, 400))
 img_wolf = load_image("wolf_cub.png", (220, 220))
 img_mushroom = load_image("mushroom.png", (180, 220))
 
-
 # --- ПЛАШКА ПОД ТЕКСТ ---
 def draw_panel(x, y, w, h, alpha=200):
-    """Рисует полупрозрачную тёмную плашку со скруглением."""
     panel = pygame.Surface((w, h), pygame.SRCALPHA)
     pygame.draw.rect(panel, (0, 0, 0, alpha), (0, 0, w, h), border_radius=15)
     pygame.draw.rect(panel, (200, 200, 200, 80), (0, 0, w, h), 2, border_radius=15)
     screen.blit(panel, (x, y))
 
-
 # --- ТЕКСТ НА ПЛАШКЕ ---
 def draw_text_with_panel(text, font_obj, color, y_top, padding=25):
-    """
-    Рисует текст в полупрозрачной плашке сверху экрана.
-    Автоматически переносит строки и центрирует по горизонтали.
-    """
-    # Разбиваем на строки
     words = text.split(' ')
     max_width = int(WIDTH * 0.75)
     lines = []
@@ -131,18 +126,15 @@ def draw_text_with_panel(text, font_obj, color, y_top, padding=25):
             lines.append(current_line)
             current_line = word + " "
     lines.append(current_line)
-
-    # Вычисляем размеры плашки
+    
     line_height = font_obj.get_height() + 6
     panel_h = len(lines) * line_height + padding * 2
     panel_w = max_width + padding * 2
     panel_x = (WIDTH - panel_w) // 2
     panel_y = y_top
-
-    # Рисуем плашку
+    
     draw_panel(panel_x, panel_y, panel_w, panel_h, alpha=200)
-
-    # Рисуем строки
+    
     for i, line in enumerate(lines):
         shadow = font_obj.render(line, True, BLACK)
         surface = font_obj.render(line, True, color)
@@ -150,10 +142,8 @@ def draw_text_with_panel(text, font_obj, color, y_top, padding=25):
         screen.blit(shadow, (rect.x + 2, rect.y + 2))
         screen.blit(surface, rect)
 
-
 # --- КНОПКИ ---
 buttons = []
-
 
 def create_button(text, x, y, w, h, color, hover_color, action):
     buttons.append({
@@ -164,25 +154,21 @@ def create_button(text, x, y, w, h, color, hover_color, action):
         "action": action
     })
 
-
 def draw_buttons():
     mouse_pos = pygame.mouse.get_pos()
     for btn in buttons:
         rect = btn["rect"]
         is_hover = rect.collidepoint(mouse_pos)
         color = btn["hover"] if is_hover else btn["color"]
-
-        # Тень
+        
         shadow_rect = rect.move(3, 3)
         pygame.draw.rect(screen, (0, 0, 0, 150), shadow_rect, border_radius=10)
-        # Основная кнопка
         pygame.draw.rect(screen, color, rect, border_radius=10)
         pygame.draw.rect(screen, BTN_BORDER, rect, 2, border_radius=10)
-
+        
         text_surf = font_small.render(btn["text"], True, WHITE)
         text_rect = text_surf.get_rect(center=rect.center)
         screen.blit(text_surf, text_rect)
-
 
 # --- ИГРОВОЙ ЦИКЛ ---
 running = True
@@ -221,59 +207,45 @@ while running:
         def go_forest():
             global game_state
             game_state = 1
-
-
         create_button("Отправиться в путь", WIDTH // 2 - btn_w // 2, btn_y, btn_w, btn_h, DARK_GREEN, GREEN, go_forest)
 
-    # --- СЦЕНА 1: ФИЛИН (развилка) ---
+    # --- СЦЕНА 1: ФИЛИН ---
     elif game_state == 1:
         def go_left():
             global game_state, karma
             karma -= 1
             game_state = 2
-
-
         def go_right():
             global game_state, karma
             karma += 1
             game_state = 3
-
-
         create_button("Налево (тропа теней)", WIDTH // 2 - btn_w - 20, btn_y, btn_w, btn_h, DARK_RED, RED, go_left)
         create_button("Направо (тропа света)", WIDTH // 2 + 20, btn_y, btn_w, btn_h, DARK_GREEN, GREEN, go_right)
 
-    # --- СЦЕНА 2: ВОЛЧОНОК (если налево) ---
+    # --- СЦЕНА 2: ВОЛЧОНОК ---
     elif game_state == 2:
         def help_wolf():
             global game_state, karma, has_wolf_fang
             karma += 2
             has_wolf_fang = True
             game_state = 4
-
-
         def ignore_wolf():
             global game_state
             game_state = 4
-
-
         create_button("Помочь волчонку", WIDTH // 2 - btn_w - 20, btn_y, btn_w, btn_h, DARK_GREEN, GREEN, help_wolf)
         create_button("Пройти мимо", WIDTH // 2 + 20, btn_y, btn_w, btn_h, GRAY, LIGHT_GRAY, ignore_wolf)
 
-    # --- СЦЕНА 3: ГРИБЫ (если направо) ---
+    # --- СЦЕНА 3: ГРИБЫ ---
     elif game_state == 3:
         def feed_mushroom():
             global game_state, karma, has_glow_mushroom
             karma += 2
             has_glow_mushroom = True
             game_state = 4
-
-
         def eat_mushroom():
             global game_state, karma
             karma -= 1
             game_state = 4
-
-
         create_button("Поделиться едой", WIDTH // 2 - btn_w - 20, btn_y, btn_w, btn_h, DARK_GREEN, GREEN, feed_mushroom)
         create_button("Съесть самому", WIDTH // 2 + 20, btn_y, btn_w, btn_h, DARK_RED, RED, eat_mushroom)
 
@@ -283,18 +255,13 @@ while running:
             global game_state, ending_type
             ending_type = "neutral"
             game_state = 5
-
-
         def chase_spirit():
             global game_state, ending_type, karma
-            # Хороший финал, если есть артефакты ИЛИ положительная карма
             if karma > 0 or has_wolf_fang or has_glow_mushroom:
                 ending_type = "good"
             else:
                 ending_type = "bad"
             game_state = 5
-
-
         create_button("Договориться с Духом", WIDTH // 2 - btn_w - 20, btn_y, btn_w, btn_h, GRAY, LIGHT_GRAY, make_deal)
         create_button("Прогнать Духа", WIDTH // 2 + 20, btn_y, btn_w, btn_h, DARK_GREEN, GREEN, chase_spirit)
 
@@ -307,8 +274,6 @@ while running:
             ending_type = ""
             has_wolf_fang = False
             has_glow_mushroom = False
-
-
         create_button("Играть снова", WIDTH // 2 - btn_w // 2, btn_y, btn_w, btn_h, GRAY, LIGHT_GRAY, restart)
 
     # 4. ПРОВЕРКА КЛИКА
@@ -320,7 +285,6 @@ while running:
                 break
 
     # 5. ОТРИСОВКА СЦЕНЫ
-    # --- СЦЕНА 0 ---
     if game_state == 0:
         screen.blit(bg_forest, (0, 0))
         screen.blit(img_timmy, (int(WIDTH * 0.05), HEIGHT - img_timmy.get_height() - 20))
@@ -331,7 +295,6 @@ while running:
             font, WHITE, y_top=int(HEIGHT * 0.08)
         )
 
-    # --- СЦЕНА 1 ---
     elif game_state == 1:
         screen.blit(bg_forest, (0, 0))
         screen.blit(img_owl, (WIDTH - img_owl.get_width() - 50, HEIGHT // 2 - 100))
@@ -343,7 +306,6 @@ while running:
             font, WHITE, y_top=int(HEIGHT * 0.08)
         )
 
-    # --- СЦЕНА 2: ВОЛЧОНОК ---
     elif game_state == 2:
         screen.blit(bg_wolf, (0, 0))
         screen.blit(img_wolf, (WIDTH - img_wolf.get_width() - 80, HEIGHT // 2 - 100))
@@ -355,7 +317,6 @@ while running:
             font, WHITE, y_top=int(HEIGHT * 0.08)
         )
 
-    # --- СЦЕНА 3: ГРИБЫ ---
     elif game_state == 3:
         screen.blit(bg_glade, (0, 0))
         screen.blit(img_mushroom, (WIDTH - img_mushroom.get_width() - 100, HEIGHT // 2 - 80))
@@ -367,7 +328,6 @@ while running:
             font, WHITE, y_top=int(HEIGHT * 0.08)
         )
 
-    # --- СЦЕНА 4: ДУХ ---
     elif game_state == 4:
         screen.blit(bg_cave, (0, 0))
         screen.blit(img_spirit, (WIDTH - img_spirit.get_width() - 50, HEIGHT // 2 - 150))
@@ -378,7 +338,6 @@ while running:
             font, WHITE, y_top=int(HEIGHT * 0.08)
         )
 
-    # --- СЦЕНА 5: ФИНАЛЫ ---
     elif game_state == 5:
         if ending_type == "good":
             screen.blit(bg_good, (0, 0))
